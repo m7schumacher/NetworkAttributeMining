@@ -1,0 +1,248 @@
+#include <iostream>
+#include <fstream>
+#include <ostream>
+#include <string>
+#include <algorithm>
+#include <vector>
+#include <sstream>
+#include <stdio.h>      
+#include <stdlib.h>
+#include <map>
+#include "Pattern.h"
+#include <ctime>
+#include <pthread.h>
+#include "timer.h"
+
+using namespace std;
+
+map<string, int> seen;
+map<string, int> omega;
+
+vector<vector<double>> matrix;
+vector<vector<Pattern>> patts;
+vector<string> seen_patterns;
+
+vector<vector<Pattern>> storage;
+
+vector<Pattern> singles;
+vector<Pattern> maximal;
+vector<Pattern> true_max;
+
+string partial_path = "/home/schumach/Desktop/";
+
+pthread_mutex_t mutex;
+ifstream myFile;
+
+int NUM_THREADS = 0;
+int min_count = 70;
+int num_attr = 0;
+int num_nodes = 0;
+int max_size = 0;
+int completed = 1;
+int big = 0;
+
+double min_dif = .30;
+double error = .0001;
+
+double start_localmax;
+double start_globalmax;
+double stop_localmax;
+double stop_globalmax;
+double time_local;
+double time_global;
+
+vector<string> split(string st)
+{
+	string buf;
+	stringstream ss(st);
+
+	vector<string> tokens;
+
+	while (ss >> buf)
+		tokens.push_back(buf);
+
+	return tokens;
+}
+
+void gen_Graph(string file)
+{
+	string line;
+	int l;
+	int r;
+	vector<string> splitter;
+
+	ifstream ifs(file, ifstream::in);
+
+	while (getline(ifs, line))
+	{
+		splitter = split(line);
+
+		istringstream(splitter[0]) >> l;
+		istringstream(splitter[1]) >> r;
+
+		/*if (r > l)
+		{
+			singles[l].addEdge(r);
+		}
+		else
+		{
+			singles[r].addEdge(l);
+		}*/
+
+		singles[l].addEdge(r);
+		singles[r].addEdge(l);
+	}
+
+	ifs.close();
+}
+
+void gen_SinglePatterns(string file)
+{
+	string line;
+	vector<string> splitter;
+	int counter = 0;
+	double curr;
+
+	ifstream ifs(file, ifstream::in);
+
+	while (getline(ifs, line))
+	{
+		Pattern patt = Pattern(counter);
+		matrix.push_back({});
+
+		splitter = split(line);
+
+		for (int i = 0; i < splitter.size(); i++)
+		{
+			curr = stod(splitter[i]);
+
+			matrix[counter].push_back(curr);
+			patt.setAttribute(i, curr);
+		}
+
+		singles.push_back(patt);
+		storage.push_back({});
+		patts.push_back({});
+		counter++;
+	}
+
+	num_nodes = singles.size();
+	ifs.close();
+}
+
+//next is a subset of patt
+bool isSubset(Pattern &patt, Pattern &next)
+{
+	string first = patt.getCode();
+
+	for (int i : next.getNodes())
+	{
+		if (first.find(" " + to_string(i) + " ") == std::string::npos)
+		{
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+bool isMaximal(Pattern &patt, vector<Pattern> &local)
+{
+	int size_patt = patt.Size();
+	int size_local = local.size();
+
+	if (size_patt == 1){ return false; }
+
+	for (int i = 0; i < size_local; i++)
+	{
+		if (local[i].Size() > size_patt)
+		{
+			if (isSubset(local[i], patt))
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+//bool isMaximal(Pattern &patt, vector<Pattern> &local)
+//{
+//	for (int i : patt.getNodes())
+//	{
+//		pthread_mutex_lock(&mutex);
+//
+//		for (Pattern p : storage[i])
+//		{
+//			if (isSubset(p, patt))
+//			{
+//				return false;
+//			}
+//		}
+//
+//		pthread_mutex_unlock(&mutex);
+//	}
+//
+//	return true;
+//}
+
+//bool isGlobalMaximal(Pattern &patt, int size)
+//{
+//	for (int i = size + 1; i <= max_size; i++)
+//	{
+//		for (int j = 0; j < patts[i].size(); j++)
+//		{
+//			if (patt.isSubset(patts[i][j].getCode()))
+//			{
+//				return false;
+//			}
+//		}
+//	}
+//
+//	return true;
+//}
+
+bool isGlobalMaximal(Pattern &patt)
+{
+	string code = patt.getCode();
+	string c;
+
+	for (Pattern p : storage[patt.firstNode()])
+	{
+		c = p.getCode();
+
+		if (code != c && patt.isSubset(p.getCode()))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+//bool isGlobalMaximal(Pattern &patt, int index)
+//{
+//	int size = patt.Size();
+//	Pattern pt;
+//
+//	for (int i = index + 1; i < maximal.size(); i++)
+//	{
+//		pt = maximal[i];
+//
+//		if (pt.Size() > size)
+//		{
+//			if (patt.isSubset(pt.getCode()))
+//			{
+//				return false;
+//			}
+//		}
+//	}
+//
+//	return true;
+//}
+
+
+void addMaximal(Pattern &max, vector<Pattern> &patts)
+{
+	vecto
